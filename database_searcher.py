@@ -1,13 +1,10 @@
 import sqlite3
 import os
+from exception_files import QueryNotFoundError
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, "elements_db.sqlite")
-
-
-class QueryNotFoundError(Exception):
-    pass
 
 
 def get_anion_charge(anion):

@@ -2,14 +2,11 @@ import sys
 from atoms import *
 from substance import *
 from database_searcher import *
+from exception_files import *
 
 
 history_path = "query_history.txt"
 bg_path = os.path.join(BASE_DIR, "bg.png")
-
-
-class CoefficientCalculationError(Exception):
-    pass
 
 
 def initialize():
@@ -40,174 +37,176 @@ def initialize():
 
 
 def fill_reaction(reagent1, reagent2):
+    """Функция, которая возвращает продукты реакции, получающиеся из исходных веществ, или ошибку, если не получилось
+    расшифровать формулу вещества, подобрать продукты реакции, или если реакция не проходит."""
     try:
         substance1 = get_substance(reagent1)
         substance2 = get_substance(reagent2)
     except IndexError:
-        print("Не получилось расшифровать формулу вещества")
-        return
+        raise SubstanceDecodeError("Не получилось расшифровать формулу вещества")
     if substance1.__class__ == Oxide:
         if substance1.oxide_type() == "кислотный":
             if reagent2 == "H2O":
                 try:
+                    # кислотный оксид + вода = кислота
                     acid = get_acid_from_oxide(reagent1)
-                    print(f"{reagent1} + {reagent2} -> {acid}")
+                    return str(acid),
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
+                    raise AutoCompletionError("Не получилось автозаполнить реакцию")
             elif substance2.__class__ == Base:
                 try:
+                    # кислотный оксид + основание = соль + вода
                     acid = get_substance(get_acid_from_oxide(reagent1))
-                    salt = Salt(substance2.cation, substance2.cation_charge,
-                                acid.anion)
-                    print(f"{reagent1} + {reagent2} -> {salt} + H2O")
+                    salt = Salt(substance2.cation, substance2.cation_charge, acid.anion)
+                    return str(salt), "H2O"
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
+                    raise AutoCompletionError("Не получилось автозаполнить реакцию")
             elif substance2.__class__ == Oxide and substance2.oxide_type() == "основный":
                 try:
+                    # кислотый оксид + основный оксид = соль
                     acid = get_substance(get_acid_from_oxide(reagent1))
-                    salt = Salt(substance2.cation, substance2.cation_charge,
-                                acid.anion)
-                    print(f"{reagent1} + {reagent2} -> {salt}")
+                    salt = Salt(substance2.cation, substance2.cation_charge, acid.anion)
+                    return str(salt),
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
+                    raise AutoCompletionError("Не получилось автозаполнить реакцию")
         elif substance1.oxide_type() == "основный":
             if reagent2 == "H2O" and get_element_type(substance1.cation) in (
                     "щелочный металл", "щелочно-земельный металл"):
+                # основный оксид + вода = основание, если металл оксида из IA или IIA группы
                 base = Base(substance1.cation, substance1.cation_charge)
-                print(f"{reagent1} + {reagent2} -> {base}")
+                return str(base),
             elif substance2.__class__ == Oxide and substance2.oxide_type() == "кислотный":
                 try:
+                    # основный оксид + кислотный оксид = соль
                     acid = get_substance(get_acid_from_oxide(reagent2))
-                    salt = Salt(substance1.cation, substance1.cation_charge,
-                                acid.anion)
-                    print(f"{reagent1} + {reagent2} -> {salt}")
+                    salt = Salt(substance1.cation, substance1.cation_charge, acid.anion)
+                    return str(salt),
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
+                    raise AutoCompletionError("Не получилось автозаполнить реакцию")
             elif substance2.__class__ == Acid:
+                # основный оксид + кислота = соль + вода
                 salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
-                print(f"{reagent1} + {reagent2} -> {salt} + H2O")
+                return str(salt), "H2O"
     elif substance1.__class__ == Acid:
         if substance2.__class__ == str:
             if compare_reactivity(substance2, substance1.cation) > 0:
+                # кислота + металл = соль + водород
                 salt = Salt(substance2, get_cation_charge(substance2), substance1.anion)
-                print(f"{reagent1} + {reagent2} -> {salt} + H2")
+                return str(salt), "H2"
             else:
-                print("Металл не может вытеснить водород из кислоты")
+                raise InvalidReactionError("Металл не может вытеснить водород из кислоты")
         elif (substance2.__class__ == Oxide and substance2.oxide_type() == "основный") or \
                 (substance2.__class__ == Base):
+            # кислота + основный оксид или основание = соль + вода
             salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
-            print(f"{reagent1} + {reagent2} -> {salt} + H2O")
+            return str(salt), "H2O"
         elif substance2.__class__ == Salt:
+            # кислота + соль = кислота' + соль' (осадок или газ)
             acid = Acid(substance2.anion)
             salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
             if str(acid) not in ("H2CO3", "H2SO3"):
                 try:
                     if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
-                        print("Один из продуктов реакции должен быть нерастворим")
-                        return
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
-            print(f"{reagent1} + {reagent2} -> {acid} + {salt}")
+                    raise AutoCompletionError("Не получилось автозаполнить реакцию")
+            return str(acid), str(salt)
     elif substance1.__class__ == Base:
         if substance2.__class__ == Oxide and substance2.oxide_type() == "кислотный":
             try:
+                # основание + кислотный оксид = соль + вода
                 acid = get_substance(get_acid_from_oxide(reagent1))
-                salt = Salt(substance2.cation, substance2.cation_charge,
-                            acid.anion)
-                print(f"{reagent1} + {reagent2} -> {salt} + H2O")
+                salt = Salt(substance2.cation, substance2.cation_charge, acid.anion)
+                return str(salt), "H2O"
             except QueryNotFoundError:
-                print("Не получилось автозаполнить реакцию")
+                raise AutoCompletionError("Не получилось автозаполнить реакцию")
         elif substance2.__class__ == Acid:
+            # основание + кислота = соль + вода
             salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
-            print(f"{reagent1} + {reagent2} -> {salt} + H2O")
+            return str(salt), "H2O"
         elif substance2.__class__ == Salt:
             try:
+                # основание + соль = основание' + соль' (осадок или газ)
                 if get_solubility(substance1) == "Р" and get_solubility(substance2) == "Р":
                     salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
                     base = Base(substance2.cation, substance2.cation_charge)
                     if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
-                        print("Один из продуктов реакции должен быть нерастворим")
-                        return
-                    print(f"{reagent1} + {reagent2} -> {base} + {salt}")
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+                    return str(base), str(salt)
             except QueryNotFoundError:
-                print("Не получилось автозаполнить реакцию")
+                raise AutoCompletionError("Не получилось автозаполнить реакцию")
         elif substance2 == "":
             try:
+                # нерастворимоеоснование = оксид + вода
                 if get_solubility(substance1) == "Р":
-                    print("Основание должно быть нерастворимо")
-                    return
+                    raise InvalidReactionError("Основание должно быть нерастворимо")
                 oxide = Oxide(substance1.cation, substance1.cation_charge)
-                print(f"{reagent1} + {reagent2} -> {oxide} + H2O")
+                return str(oxide), "H2O"
             except QueryNotFoundError:
-                print("Не получилось автозаполнить реакцию")
+                raise AutoCompletionError("Не получилось автозаполнить реакцию")
     elif substance1.__class__ == Salt:
         if substance2.__class__ == Acid:
+            # соль + кислота = соль' + кислота' (осадок или газ)
             acid = Acid(substance1.anion)
             salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
             if str(acid) not in ("H2CO3", "H2SO3"):
                 try:
                     if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
-                        print("Один из продуктов реакции должен быть нерастворим")
-                        return
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
-            print(f"{reagent1} + {reagent2} -> {acid} + {salt}")
+                    raise AutoCompletionError("Не получилось автозаполнить реакцию")
+            return str(acid), str(salt)
         elif substance2.__class__ == Base:
+            # соль + основание = соль' + основание' (осадок или газ)
             try:
                 if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
                     salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
                     base = Base(substance1.cation, substance1.cation_charge)
                     if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
-                        print(
-                            "Один из продуктов реакции должен быть нерастворим")
-                        return
-                    print(f"{reagent1} + {reagent2} -> {base} + {salt}")
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+                    return str(base), str(salt)
             except QueryNotFoundError:
-                print("Не получилось автозаполнить реакцию")
+                raise AutoCompletionError("Не получилось автозаполнить реакцию")
         elif substance2.__class__ == Salt:
+            # соль + соль = соль' + соль' (осадок или газ)
             try:
                 if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
-                    result_salt1 = Salt(
-                        substance2.cation, substance2.cation_charge, substance1.anion)
-                    result_salt2 = Salt(
-                        substance1.cation, substance1.cation_charge, substance2.anion)
-                    if get_solubility(result_salt1) == "Р" and get_solubility(
-                            result_salt2) == "Р":
-                        print(
-                            "Один из продуктов реакции должен быть нерастворим")
-                        return
-                    print(f"{reagent1} + {reagent2} -> {result_salt1} + {result_salt2}")
+                    result_salt1 = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
+                    result_salt2 = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
+                    if get_solubility(result_salt1) == "Р" and get_solubility(result_salt2) == "Р":
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+                    return str(result_salt1), str(result_salt2)
             except QueryNotFoundError:
-                print("Не получилось автозаполнить реакцию")
+                raise AutoCompletionError("Не получилось автозаполнить реакцию")
         elif substance2.__class__ == str:
+            # соль + металл = соль' + металл'
             if compare_reactivity(substance2, substance1.cation) > 0:
                 salt = Salt(substance2, get_cation_charge(substance2), substance1.anion)
-                print(f"{reagent1} + {reagent2} -> {salt} + {substance1.cation}")
+                return str(salt), str(substance1.cation)
             else:
-                print("Металл недостаточно активен, чтобы вытеснить металл из соли")
+                raise InvalidReactionError("Металл недостаточно активен, чтобы вытеснить металл из соли")
 
 
-def fill_coefficients(reagent1, reagent2, reagent3, reagent4):
-    """Заполняет коэффициенты реакции."""
+def fill_coefficients(in1, in2, out1, out2):
+    """Заполняет коэффициенты реакции. Принимает на вход четыре вещества (могут присутствовать пустые строки -
+    это значит, что вещество пропущено)"""
     try:
-        substance1 = get_substance(reagent1)
-        substance2 = get_substance(reagent2)
+        substance1 = get_substance(in1)
+        substance2 = get_substance(in2)
     except IndexError:
-        print("Не получилось расшифровать формулу вещества")
+        pass
     else:
         if substance1.__class__ == Acid:
             if substance2.__class__ == str:
                 if compare_reactivity(substance2, substance1.cation) <= 0:
-                    print("Металл не может вытеснить водород из кислоты")
-                    return
+                    raise InvalidReactionError("Металл не может вытеснить водород из кислоты")
             elif substance2.__class__ == Salt:
                 acid = Acid(substance2.anion)
                 salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
                 if str(acid) not in ("H2CO3", "H2SO3"):
                     try:
                         if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
-                            print("Один из продуктов реакции должен быть нерастворим")
-                            return
+                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                     except QueryNotFoundError:
                         pass
         elif substance1.__class__ == Base:
@@ -217,17 +216,15 @@ def fill_coefficients(reagent1, reagent2, reagent3, reagent4):
                         salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
                         base = Base(substance2.cation, substance2.cation_charge)
                         if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
-                            print("Один из продуктов реакции должен быть нерастворим")
-                            return
+                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                 except QueryNotFoundError:
                     pass
             elif substance2 == "":
                 try:
                     if get_solubility(substance1) == "Р":
-                        print("Основание должно быть нерастворимо")
-                        return
+                        raise InvalidReactionError("Основание должно быть нерастворимо")
                 except QueryNotFoundError:
-                    print("Не получилось автозаполнить реакцию")
+                    pass
         elif substance1.__class__ == Salt:
             if substance2.__class__ == Acid:
                 acid = Acid(substance1.anion)
@@ -235,8 +232,7 @@ def fill_coefficients(reagent1, reagent2, reagent3, reagent4):
                 if str(acid) not in ("H2CO3", "H2SO3"):
                     try:
                         if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
-                            print("Один из продуктов реакции должен быть нерастворим")
-                            return
+                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                     except QueryNotFoundError:
                         pass
             elif substance2.__class__ == Base:
@@ -245,50 +241,45 @@ def fill_coefficients(reagent1, reagent2, reagent3, reagent4):
                         salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
                         base = Base(substance1.cation, substance1.cation_charge)
                         if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
-                            print("Один из продуктов реакции должен быть нерастворим")
-                            return
+                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                 except QueryNotFoundError:
                     pass
             elif substance2.__class__ == Salt:
                 try:
                     if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
-                        result_salt1 = Salt(
-                            substance2.cation, substance2.cation_charge, substance1.anion)
-                        result_salt2 = Salt(
-                            substance1.cation, substance1.cation_charge, substance2.anion)
+                        result_salt1 = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
+                        result_salt2 = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
                         if get_solubility(result_salt1) == "Р" and get_solubility(result_salt2) == "Р":
-                            print("Один из продуктов реакции должен быть нерастворим")
-                            return
+                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
                 except QueryNotFoundError:
                     pass
             elif substance2.__class__ == str:
                 if compare_reactivity(substance2, substance1.cation) <= 0:
-                    print("Металл недостаточно активен, чтобы вытеснить металл из соли")
-                    return
-    print("")
+                    raise InvalidReactionError("Металл недостаточно активен, чтобы вытеснить металл из соли")
     try:
-        coeffs = self.calculate_coefficients(reagent1, reagent2, reagent3, reagent4)
+        coeffs = self.calculate_coefficients(in1, in2, out1, out2)
     except CoefficientCalculationError:
-        print("Не получилось расставить коэффициенты")
+        return "Не получилось расставить коэффициенты"
     else:
         coeff1, coeff2, coeff3, coeff4 = coeffs
-        str1 = f"{coeff1} {reagent1}" if reagent1 else ""
-        str2 = f"{coeff2} {reagent2}" if reagent2 else ""
-        if reagent3 == "H2CO3":
+        str1 = f"{coeff1} {in1}" if in1 else ""
+        str2 = f"{coeff2} {in2}" if in2 else ""
+        if out1 == "H2CO3":
             str3 = f"{coeff3} H2O + {coeff3} CO2"
-        elif reagent3 == "H2SO3":
+        elif out1 == "H2SO3":
             str3 = f"{coeff3} H2O + {coeff3} SO2"
         else:
-            str3 = f"{coeff3} {reagent3}" if reagent3 else ""
-        if reagent4 == "H2CO3":
+            str3 = f"{coeff3} {out1}" if out1 else ""
+        if out2 == "H2CO3":
             str4 = f"{coeff4} H2O + {coeff4} CO2"
-        elif reagent4 == "H2SO3":
+        elif out2 == "H2SO3":
             str4 = f"{coeff4} H2O + {coeff4} SO2"
         else:
-            str4 = f"{coeff4} {reagent4}" if reagent4 else ""
+            str4 = f"{coeff4} {out2}" if out2 else ""
         part1 = " + ".join(filter(lambda x: x, (str1, str2)))
         part2 = " + ".join(filter(lambda x: x, (str3, str4)))
-        print(f"{part1} -> {part2}")
+        return f"Коэффициенты в реакции расставлены:\n" + \
+               f"{part1} -> {part2}"
 
 
 def calculate_mass(substance, element):
@@ -446,7 +437,3 @@ def calculate_equation(self):
             f"{reagent1} + {reagent2} -> {reagent3} + {reagent4}\n"
         )
     self.update_history()
-
-
-if __name__ == '__main__':
-    elements_table, solubility_table = initialize()

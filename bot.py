@@ -25,6 +25,16 @@ async def help_command(update, context):
     await update.message.reply_text("Пока я говорю только, что химия топ. А вы что, не верите?")
 
 
+async def calculate_coeffs_command(update, context):
+    # TODO: Короче, сначала нужно спросить у пользователя исходные вещества в реакции.
+    #  Затем ты вызываешь мою функцию fill_reaction из chem_utils, она пытается автоматически задать
+    #  продукты реакции. Если они нашлись, вызываешь функцию fill_coefficients и передаешь туда все четыре
+    #  вещества. Если не нашлись, спрашиваешь у пользователя продукты реакции, а затем также вызываешь функцию.
+    #  В принципе, то что вернула функция можно безболезненно отправить, я уже все отформатировал. Или можешь с этим
+    #  побольше повозиться и подобрать лучший вариант если хочешь
+    pass
+
+
 def main():
     application = Application.builder().token('6118669795:AAFpiYLMNG1pRoLTpZbx0OjegOv7gYzLbsY').build()
     application.add_handler(CommandHandler("start", start))
