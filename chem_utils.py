@@ -50,7 +50,7 @@ def fill_reaction(reagent1, reagent2):
                 try:
                     # кислотный оксид + вода = кислота
                     acid = get_acid_from_oxide(reagent1)
-                    return str(acid),
+                    return str(acid), ""
                 except QueryNotFoundError:
                     raise AutoCompletionError("Не получилось автозаполнить реакцию")
             elif substance2.__class__ == Base:
@@ -66,7 +66,7 @@ def fill_reaction(reagent1, reagent2):
                     # кислотый оксид + основный оксид = соль
                     acid = get_substance(get_acid_from_oxide(reagent1))
                     salt = Salt(substance2.cation, substance2.cation_charge, acid.anion)
-                    return str(salt),
+                    return str(salt), ""
                 except QueryNotFoundError:
                     raise AutoCompletionError("Не получилось автозаполнить реакцию")
         elif substance1.oxide_type() == "основный":
@@ -80,7 +80,7 @@ def fill_reaction(reagent1, reagent2):
                     # основный оксид + кислотный оксид = соль
                     acid = get_substance(get_acid_from_oxide(reagent2))
                     salt = Salt(substance1.cation, substance1.cation_charge, acid.anion)
-                    return str(salt),
+                    return str(salt), ""
                 except QueryNotFoundError:
                     raise AutoCompletionError("Не получилось автозаполнить реакцию")
             elif substance2.__class__ == Acid:
