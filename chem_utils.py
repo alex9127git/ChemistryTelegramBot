@@ -257,7 +257,7 @@ def fill_coefficients(in1, in2, out1, out2):
                 if compare_reactivity(substance2, substance1.cation) <= 0:
                     raise InvalidReactionError("Металл недостаточно активен, чтобы вытеснить металл из соли")
     try:
-        coeffs = self.calculate_coefficients(in1, in2, out1, out2)
+        coeffs = calculate_coefficients(in1, in2, out1, out2)
     except CoefficientCalculationError:
         return "Не получилось расставить коэффициенты"
     else:
@@ -437,3 +437,15 @@ def calculate_equation(self):
             f"{reagent1} + {reagent2} -> {reagent3} + {reagent4}\n"
         )
     self.update_history()
+
+
+if __name__ == '__main__':
+    print(fill_coefficients("AgNO3", "NaCl", "AgCl", "NaNO3"))
+    print(fill_coefficients("CuSO4", "NaOH", "Cu(OH)2", "Na2SO4"))
+    print(fill_coefficients("Na2CO3", "HCl", "H2CO3", "NaCl"))
+    print(fill_coefficients("CuSO4", "Al", "Al2(SO4)3", "Cu"))
+    print(fill_coefficients("Cu3(PO4)2", "K", "K3PO4", "Cu"))
+    print(fill_coefficients("CuSO4", "Ba(OH)2", "Cu(OH)2", "BaSO4"))
+    print(fill_coefficients("NaOH", "H3PO4", "Na3PO4",  "H2O"))
+    print(fill_coefficients("Na2O", "SO2", "Na2SO3", ""))
+    print(fill_coefficients("LiOH", "CuSO4", "Cu(OH)2", "Li2SO4"))
