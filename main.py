@@ -23,19 +23,15 @@ async def help_command(update, context):
     await update.message.reply_text("Ну... Химия топ, а вообще я робот")
 
 
-async def gen_reaction(update, context):
-    await update.message.reply_text("Так, начинаем жёстко генерировать реакшон!")
-    await reaction_master(update, context)
-    return ConversationHandler.END
-
-
 async def stop(update, context):
     await update.message.reply_text("ОК, задача отменена.")
     return ConversationHandler.END
 
 
 async def reaction_master(update, context):
-    sub1 = update.message.text.split()
+    await update.message.reply_text("Так, начинаем жёстко генерировать реакшон!")
+
+    sub1 = update.message.reply_text.split()
     while len(sub1) < 2:
         sub1.append('')
     sub2 = []
@@ -44,7 +40,7 @@ async def reaction_master(update, context):
     except SubstanceDecodeError:
         await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
         await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
-        sub2 = update.message.text.split()
+        sub2 = update.message.reply_text.split()
     except AutoCompletionError:
         await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
         await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
@@ -59,11 +55,12 @@ async def reaction_master(update, context):
         await update.message.reply_text(ta)
     except Exception:
         await update.message.reply_text("Вы, дядя, дурень.")
+    return ConversationHandler.END
 
 
 def main():
     dialog = ConversationHandler(
-        entry_points=[CommandHandler('get_reaction', gen_reaction)],
+        entry_points=[CommandHandler('get_reaction', reaction_master)],
         states={
             1: [MessageHandler(filters.TEXT & ~filters.COMMAND, reaction_master)]
         },
