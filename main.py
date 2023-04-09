@@ -16,7 +16,7 @@ async def start(update, context):
     await update.message.reply_html(
         rf"Привет {user.mention_html()}! Я помогаю составлять химические уравнения.")
     await update.message.reply_html(
-        r"Для того, чтобы сгенерировать реакцию введите /get_reactiom")
+        r"Для того, чтобы сгенерировать реакцию введите /get_reaction")
 
 
 async def help_command(update, context):
@@ -56,11 +56,6 @@ async def reaction_master(update, context):
 
 
 def main():
-    application = Application.builder().token('6118669795:AAFpiYLMNG1pRoLTpZbx0OjegOv7gYzLbsY').build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    text_handler = MessageHandler(filters.TEXT, reaction_master)
-
     dialog = ConversationHandler(
         entry_points=[CommandHandler('get_reaction', start)],
         states={
@@ -68,7 +63,11 @@ def main():
         },
         fallbacks=[CommandHandler('stop', stop)]
     )
-
+    application = Application.builder().token('6118669795:AAFpiYLMNG1pRoLTpZbx0OjegOv7gYzLbsY').build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    text_handler = MessageHandler(filters.TEXT, reaction_master)
+    application.add_handler(dialog)
     application.add_handler(text_handler)
     application.run_polling()
 
