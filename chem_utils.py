@@ -278,79 +278,8 @@ def fill_coefficients(in1, in2, out1, out2):
             str4 = f"{coeff4} {out2}" if out2 else ""
         part1 = " + ".join(filter(lambda x: x, (str1, str2)))
         part2 = " + ".join(filter(lambda x: x, (str3, str4)))
-        return f"Коэффициенты в реакции расставлены:\n" + \
+        return f"Коэффициенты в реакции расставлены:\n" \
                f"{part1} -> {part2}"
-
-
-def calculate_mass(substance, element):
-    """Рассчитывает массовую долю выбранного элемента в выбранном веществе."""
-    try:
-        get_element_type(element)
-    except QueryNotFoundError:
-        print("Не получилось найти элемент")
-        return
-    substance_atoms = Atoms(substance)
-    substance_mass, expression = substance_atoms.calculate_molecular_mass()
-    element_mass = get_element_mass(element) * substance_atoms.atoms.get(element, 0)
-    self.substance_mass_edit.setText(expression)
-    self.element_mass_edit.setText(f"{element_mass}")
-    mass_fraction = element_mass / substance_mass
-    self.mass_calculation_lbl.setText(
-        f"{element_mass} / {substance_mass} = {mass_fraction}"
-    )
-    print(f"Массовая доля {element} в {substance} составляет {mass_fraction * 100:.3f}%")
-
-
-def calculate_formula(self):
-    """Рассчитывает формулу вещества по массовым долям его элементов."""
-    edits = (self.element1_edit, self.element2_edit, self.element3_edit, self.element4_edit)
-    spin_boxes = (self.element1_spinbox, self.element2_spinbox, self.element3_spinbox,
-                  self.element4_spinbox)
-    self.formula_error_lbl.setText("")
-    try:
-        element1 = self.element1_edit.text()
-        if element1:
-            get_element_type(element1)
-        element2 = self.element2_edit.text()
-        if element2:
-            get_element_type(element2)
-        element3 = self.element3_edit.text()
-        if element3:
-            get_element_type(element3)
-        element4 = self.element4_edit.text()
-        if element4:
-            get_element_type(element4)
-    except QueryNotFoundError:
-        self.formula_error_lbl.setText("Не получилось найти один из элементов")
-        return
-    if len(list(filter(lambda x: x == "", (element1, element2, element3, element4)))) > 2:
-        self.formula_error_lbl.setText("Нужно определить как минимум два элемента")
-        return
-    for i in range(4):
-        if edits[i].text() == "":
-            spin_boxes[i].setValue(0)
-    elements = list(filter(lambda x: x != "", map(lambda x: x.text(), edits)))
-    percentages = list(filter(lambda x: x > 0, map(lambda x: x.value(), spin_boxes)))
-    if sum(percentages) != 100:
-        self.formula_error_lbl.setText("Процентные соотношения в сумме должны давать 100%")
-        return
-    masses = list(map(lambda x: round(get_element_mass(x)), elements))
-    quantity = len(elements)
-    coeffs = [1] * quantity
-    percent = list(map(lambda x: masses[x] * coeffs[x] / percentages[x], range(quantity)))
-    while len(set(percent)) > 1:
-        index = percent.index(min(percent))
-        coeffs[index] += 1
-        percent = list(map(lambda x: masses[x] * coeffs[x] / percentages[x], range(quantity)))
-    self.output_formula_lbl.setText(f"{' : '.join(elements)} = {' : '.join(map(str, coeffs))}")
-    with open("query_history.txt", "a", encoding="utf-8") as history:
-        history.write(
-            "Расчет формулы: " +
-            '; '.join(map(
-                lambda x: f'{elements[x]} = {percentages[x]}', range(len(elements)))
-            ) + "\n"
-        )
-    self.update_history()
 
 
 def calculate_coefficients(reagent1, reagent2, reagent3, reagent4):
@@ -381,30 +310,57 @@ def calculate_coefficients(reagent1, reagent2, reagent3, reagent4):
     return [coeff1, coeff2, coeff3, coeff4]
 
 
-def calculate_equation(self):
-    self.equation_error_lbl.setText("")
-    reagent1 = self.eq_primary_input_edit.text()
-    reagent2 = self.eq_secondary_input_edit.text()
-    reagent3 = self.eq_primary_output_edit.text()
-    reagent4 = self.eq_secondary_output_edit.text()
+def calculate_mass(substance, element):
+    """Рассчитывает массовую долю выбранного элемента в выбранном веществе."""
+    try:
+        get_element_type(element)
+    except QueryNotFoundError:
+        return "Не получилось найти элемент"
+    substance_atoms = Atoms(substance)
+    substance_mass, expression = substance_atoms.calculate_molecular_mass()
+    element_mass = get_element_mass(element) * substance_atoms.atoms.get(element, 0)
+    msg = f"Молекулярная масса вещества: {expression}\n"
+    msg += f"Молекулярная масса элемента: {element_mass}\n"
+    mass_fraction = element_mass / substance_mass
+    msg += f"Расчёт массовой доли элемента: {element_mass} / {substance_mass} = {mass_fraction}\n"
+    msg += f"Массовая доля {element} в {substance} составляет {mass_fraction * 100:.3f}%"
+    return msg
+
+
+def calculate_formula(elements_dict):
+    """Рассчитывает формулу вещества по массовым долям его элементов."""
+    try:
+        for element in elements_dict.keys():
+            get_element_type(element)
+    except QueryNotFoundError:
+        return "Не получилось найти один из элементов"
+    if len(elements_dict) < 2:
+        return "Нужно определить как минимум два элемента"
+    elements = list(elements_dict.keys())
+    percentages = list(elements_dict.values())
+    if sum(percentages) != 100:
+        return "Процентные соотношения в сумме должны давать 100%"
+    masses = list(map(lambda x: round(get_element_mass(x)), elements))
+    quantity = len(elements)
+    coeffs = [1] * quantity
+    percent = list(map(lambda x: masses[x] * coeffs[x] / percentages[x], range(quantity)))
+    while len(set(percent)) > 1:
+        index = percent.index(min(percent))
+        coeffs[index] += 1
+        percent = list(map(lambda x: masses[x] * coeffs[x] / percentages[x], range(quantity)))
+    return f"Формула вещества рассчитана:\n" \
+           f"{' : '.join(elements)} = {' : '.join(map(str, coeffs))}"
+
+
+def calculate_equation(reagent1, reagent2, reagent3, reagent4, known_reagent, mass, found_reagent):
     reagents = [reagent1, reagent2, reagent3, reagent4]
-    known_reagent = self.eq_substance1_edit.text()
-    found_reagent = self.eq_substance2_edit.text()
     if known_reagent not in reagents or found_reagent not in reagents or known_reagent == "" \
             or found_reagent == "":
-        self.equation_error_lbl.setText(
-            "Известное или искомое вещество не находится в уравнении")
-        return
+        return "Известное или искомое вещество не находится в уравнении"
     try:
-        mass = float(self.eq_mass_edit.text().replace(",", "."))
-    except ValueError:
-        self.equation_error_lbl.setText("Не получилось прочитать массу")
-        return
-    try:
-        coeffs = self.calculate_coefficients(*reagents)
+        coeffs = calculate_coefficients(*reagents)
     except CoefficientCalculationError:
-        self.equation_error_lbl.setText("Не получилось расставить коэффициенты")
-        return
+        return "Не получилось расставить коэффициенты"
     coeff1, coeff2, coeff3, coeff4 = coeffs
     str1 = f"{coeff1} {reagent1}" if reagent1 else ""
     str2 = f"{coeff2} {reagent2}" if reagent2 else ""
@@ -412,31 +368,20 @@ def calculate_equation(self):
     str4 = f"{coeff4} {reagent4}" if reagent4 else ""
     part1 = " + ".join(filter(lambda x: x, (str1, str2)))
     part2 = " + ".join(filter(lambda x: x, (str3, str4)))
-    self.equation_lbl.setText(
-        f"Уравнение с коэффициентами: {part1} -> {part2}"
-    )
+    msg = f"Уравнение с коэффициентами: {part1} -> {part2}\n"
     k_atoms = Atoms(known_reagent)
     r_atoms = Atoms(found_reagent)
     mol_mass, _ = k_atoms.calculate_molecular_mass()
     k_mol = mass / round(mol_mass)
-    self.substance1_qty_lbl.setText(
-        f"Количество известного вещества: {mass:.3f} / {round(mol_mass)} = {k_mol:.3f} моль")
+    msg += f"Количество {known_reagent}: {mass:.3f} / {round(mol_mass)} = {k_mol:.3f} моль\n"
     kc = coeffs[reagents.index(known_reagent)]
     rc = coeffs[reagents.index(found_reagent)]
-    self.mol_fraction_lbl.setText(
-        f"Мольное соотношение известного вещества к неизвестному: {kc}:{rc}")
+    msg += f"Мольное соотношение {known_reagent} к {found_reagent}: {kc}:{rc}\n"
     r_mol = k_mol / kc * rc
     mol_mass, _ = r_atoms.calculate_molecular_mass()
     r_mass = r_mol * round(mol_mass)
-    self.substance2_mass_lbl.setText(
-        f"Масса неизвестного вещества: {r_mol:.3f} * {round(mol_mass)} = {r_mass:.3f} г")
-    self.output_equation_lbl.setText(f"Масса {found_reagent} = {r_mass:.3f}")
-    with open("query_history.txt", "a", encoding="utf-8") as history:
-        history.write(
-            f"Расчет массы элемента {found_reagent}; m({known_reagent}) = {mass} г; " +
-            f"{reagent1} + {reagent2} -> {reagent3} + {reagent4}\n"
-        )
-    self.update_history()
+    msg += f"Масса {found_reagent}: {r_mol:.3f} * {round(mol_mass)} = {r_mass:.3f} г"
+    return msg
 
 
 if __name__ == '__main__':
@@ -449,3 +394,9 @@ if __name__ == '__main__':
     print(fill_coefficients("NaOH", "H3PO4", "Na3PO4",  "H2O"))
     print(fill_coefficients("Na2O", "SO2", "Na2SO3", ""))
     print(fill_coefficients("LiOH", "CuSO4", "Cu(OH)2", "Li2SO4"))
+    print(calculate_mass("Al2(SO4)3", "S"))
+    print(calculate_mass("Al2(SO4)3", "Al"))
+    print(calculate_formula({"Cu": 80.0, "O": 20.0}))
+    print(calculate_formula({"Cu": 40.0, "S": 20.0, "O": 40.0}))
+    print(calculate_equation("CuSO4", "KOH", "K2SO4", "Cu(OH)2", "KOH", 10.0, "K2SO4"))
+    print(calculate_equation("CuSO4", "Al", "Al2(SO4)3", "Cu", "Al", 130.0, "Al2(SO4)3"))
