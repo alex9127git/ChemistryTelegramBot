@@ -25,6 +25,8 @@ async def help_command(update, context):
 
 async def gen_reaction(update, context):
     await update.message.reply_text("Так, начинаем жёстко генерировать реакшон!")
+    await reaction_master(update, context)
+    return ConversationHandler.END
 
 
 async def stop(update, context):
@@ -33,26 +35,30 @@ async def stop(update, context):
 
 
 async def reaction_master(update, context):
-    # sub = substance = subscribe :)
     sub1 = update.message.text.split()
     while len(sub1) < 2:
         sub1.append('')
+    sub2 = []
     try:
-        spisok = fill_reaction(sub1[0], sub1[1])
-        fill_coefficients(sub1[0], sub1[1], spisok[0], spisok[1])
+        spi = fill_reaction(sub1[0], sub1[1])
     except SubstanceDecodeError:
         await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
         await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
         sub2 = update.message.text.split()
-        fill_coefficients(sub1[0], sub1[1], sub2[0], sub2[1])
     except AutoCompletionError:
         await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
         await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
         sub2 = update.message.text.split()
-        fill_coefficients(sub1[0], sub1[1], sub2[0], sub2[1])
     except InvalidReactionError:
         await update.message.reply_text("Просьба вводить что-то осознанное с точки зрения химии!")
-    return ConversationHandler.END
+        return None
+
+    try:
+        ta = fill_coefficients(sub1[0], sub1[1], sub2[0], sub2[1])
+        await update.message.reply_text("Ваша жёсткая реакшон")
+        await update.message.reply_text(ta)
+    except Exception:
+        await update.message.reply_text("Вы, дядя, дурень.")
 
 
 def main():
@@ -67,8 +73,6 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(dialog)
-    text_handler = MessageHandler(filters.TEXT, reaction_master)
-    application.add_handler(text_handler)
     application.run_polling()
 
 
