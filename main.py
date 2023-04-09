@@ -57,7 +57,7 @@ async def reaction_master(update, context):
 
 def main():
     dialog = ConversationHandler(
-        entry_points=[CommandHandler('get_reaction', start)],
+        entry_points=[CommandHandler('get_reaction', gen_reaction)],
         states={
             1: [MessageHandler(filters.TEXT & ~filters.COMMAND, reaction_master)]
         },
@@ -66,8 +66,8 @@ def main():
     application = Application.builder().token('6118669795:AAFpiYLMNG1pRoLTpZbx0OjegOv7gYzLbsY').build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    text_handler = MessageHandler(filters.TEXT, reaction_master)
     application.add_handler(dialog)
+    text_handler = MessageHandler(filters.TEXT, reaction_master)
     application.add_handler(text_handler)
     application.run_polling()
 
