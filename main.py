@@ -30,8 +30,8 @@ async def stop(update, context):
 
 async def reaction_master(update, context):
     await update.message.reply_text("Так, начинаем жёстко генерировать реакшон!")
-
-    sub1 = update.message.reply_text.split()
+    await update.message.reply_text("Вводите исходные элементы")
+    sub1 = update.message.text.split()
     while len(sub1) < 2:
         sub1.append('')
     sub2 = []
@@ -40,7 +40,7 @@ async def reaction_master(update, context):
     except SubstanceDecodeError:
         await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
         await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
-        sub2 = update.message.reply_text.split()
+        sub2 = update.message.text.split()
     except AutoCompletionError:
         await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
         await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
