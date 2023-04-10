@@ -11,12 +11,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+STATE_INPUT = 1
+
+
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_html(
-        rf"Привет {user.mention_html()}! Я помогаю составлять химические уравнения.")
-    await update.message.reply_html(
-        r"Для того, чтобы сгенерировать реакцию введите /get_reaction")
+        f"Привет {user.mention_html()}! Я помогаю составлять химические уравнения.\n"
+        "Для того, чтобы сгенерировать реакцию введите /get_reaction")
 
 
 async def help_command(update, context):
@@ -24,45 +26,63 @@ async def help_command(update, context):
 
 
 async def stop(update, context):
-    await update.message.reply_text("ОК, задача отменена.")
+    await update.message.reply_text("<Задача отменена>")
     return ConversationHandler.END
 
 
-async def reaction_master(update, context):
-    await update.message.reply_text("Так, начинаем жёстко генерировать реакшон!")
-    await update.message.reply_text("Вводите исходные элементы")
-    sub1 = update.message.text.split()
-    while len(sub1) < 2:
-        sub1.append('')
-    sub2 = []
-    try:
-        spi = fill_reaction(sub1[0], sub1[1])
-    except SubstanceDecodeError:
-        await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
-        await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
-        sub2 = update.message.text.split()
-    except AutoCompletionError:
-        await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
-        await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
-        sub2 = update.message.text.split()
-    except InvalidReactionError:
-        await update.message.reply_text("Просьба вводить что-то осознанное с точки зрения химии!")
-        return None
+async def gen_reaction(update, context):
+    await update.message.reply_text("Вводите исходные элементы реакции (через пробел)")
+    context.user_data.clear()
+    return STATE_INPUT
 
+
+async def accept_inputs(update, context):
+    if context.user_data.get("reaction_inputs") is None:
+        reaction_inputs = update.message.text.split()
+        while len(reaction_inputs) < 2:
+            reaction_inputs.append('')
+        context.user_data["reaction_inputs"] = reaction_inputs
+        try:
+            reaction_outputs = fill_reaction(*reaction_inputs)
+        except SubstanceDecodeError:
+            await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
+            await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
+            return STATE_INPUT
+        except AutoCompletionError:
+            await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
+            await update.message.reply_text("На всякий случай предупреждаю об необходимости осознанного ввода.")
+            return STATE_INPUT
+        except InvalidReactionError as e:
+            await update.message.reply_text(f"Ошибка: {e}")
+            return ConversationHandler.END
+        else:
+            context.user_data["reaction_outputs"] = reaction_outputs
+            await update.message.reply_text(
+                f"Автоматически определены продукты реакции: {', '.join(context.user_data['reaction_outputs'])}")
+            await done(update, context)
+            return ConversationHandler.END
+    elif context.user_data.get("reaction_outputs") is None:
+        reaction_outputs = update.message.text.split()
+        while len(reaction_outputs) < 2:
+            reaction_outputs.append('')
+        context.user_data["reaction_outputs"] = reaction_outputs
+        await done(update, context)
+        return ConversationHandler.END
+
+
+async def done(update, context):
     try:
-        ta = fill_coefficients(sub1[0], sub1[1], sub2[0], sub2[1])
-        await update.message.reply_text("Ваша жёсткая реакшон")
+        ta = fill_coefficients(*context.user_data["reaction_inputs"], *context.user_data["reaction_outputs"])
         await update.message.reply_text(ta)
-    except Exception:
-        await update.message.reply_text("Вы, дядя, дурень.")
-    return ConversationHandler.END
+    except InvalidReactionError:
+        await update.message.reply_text(f"Ошибка: {e}")
 
 
 def main():
     dialog = ConversationHandler(
-        entry_points=[CommandHandler('get_reaction', reaction_master)],
+        entry_points=[CommandHandler('gen_reaction', gen_reaction)],
         states={
-            1: [MessageHandler(filters.TEXT & ~filters.COMMAND, reaction_master)]
+            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]*( [A-Za-z0-9\(\)]*|)$"), accept_inputs)]
         },
         fallbacks=[CommandHandler('stop', stop)]
     )
