@@ -278,8 +278,34 @@ def fill_coefficients(in1, in2, out1, out2):
             str4 = f"{coeff4} {out2}" if out2 else ""
         part1 = " + ".join(filter(lambda x: x, (str1, str2)))
         part2 = " + ".join(filter(lambda x: x, (str3, str4)))
+        ionic = get_ionic_equation((in1, in2, out1, out2), coeffs)
         return f"Коэффициенты в реакции расставлены:\n" \
-               f"{part1} -> {part2}"
+               f"{part1} -> {part2}\n" + \
+               (f"Ионное уравнение: {ionic}" if ionic else "Ионное уравнение не составляется")
+
+
+def get_ionic_equation(reagents, coeffs):
+    try:
+        substances = list(map(lambda r: get_substance(r), reagents))
+    except IndexError:
+        return ""
+    equation = []
+    for i, (substance, coeff) in enumerate(zip(substances, coeffs)):
+        if not substance:
+            continue
+        try:
+            if isinstance(substance, Substance) and not isinstance(substance, Oxide) and \
+                    str(substance) != "H2O" and get_solubility(substance) == "Р":
+                equation.append(f"{coeff * substance.cation_count} "
+                                f"{substance.cation}({substance.cation_charge}+) + ")
+                equation.append(f"{coeff * substance.anion_count} {substance.anion}({abs(substance.anion_charge)}-)")
+            else:
+                equation.append(f"{coeff} {substance}")
+            if i != 3:
+                equation.append(" -> " if i % 2 else " + ")
+        except QueryNotFoundError:
+            return ""
+    return "".join(equation).strip(" + ")
 
 
 def calculate_coefficients(reagent1, reagent2, reagent3, reagent4):
@@ -391,9 +417,10 @@ if __name__ == '__main__':
     print(fill_coefficients("CuSO4", "Al", "Al2(SO4)3", "Cu"))
     print(fill_coefficients("Cu3(PO4)2", "K", "K3PO4", "Cu"))
     print(fill_coefficients("CuSO4", "Ba(OH)2", "Cu(OH)2", "BaSO4"))
-    print(fill_coefficients("NaOH", "H3PO4", "Na3PO4",  "H2O"))
+    print(fill_coefficients("NaOH", "H3PO4", "Na3PO4", "H2O"))
     print(fill_coefficients("Na2O", "SO2", "Na2SO3", ""))
     print(fill_coefficients("LiOH", "CuSO4", "Cu(OH)2", "Li2SO4"))
+    print(fill_coefficients("NaOH", "CO2", "NaHCO3", ""))
     print(calculate_mass("Al2(SO4)3", "S"))
     print(calculate_mass("Al2(SO4)3", "Al"))
     print(calculate_formula({"Cu": 80.0, "O": 20.0}))
