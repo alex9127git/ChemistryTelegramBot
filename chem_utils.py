@@ -164,72 +164,6 @@ def fill_coefficients(in1, in2, out1, out2):
     """Заполняет коэффициенты реакции. Принимает на вход четыре вещества (могут присутствовать пустые строки -
     это значит, что вещество пропущено)"""
     try:
-        substance1 = get_substance(in1)
-        substance2 = get_substance(in2)
-    except IndexError:
-        pass
-    else:
-        if substance1.__class__ == Acid:
-            if substance2.__class__ == str:
-                if compare_reactivity(substance2, substance1.cation) <= 0:
-                    raise InvalidReactionError("Металл не может вытеснить водород из кислоты")
-            elif substance2.__class__ == Salt:
-                acid = Acid(substance2.anion)
-                salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
-                if str(acid) not in ("H2CO3", "H2SO3"):
-                    try:
-                        if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
-                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
-                    except QueryNotFoundError:
-                        pass
-        elif substance1.__class__ == Base:
-            if substance2.__class__ == Salt:
-                try:
-                    if get_solubility(substance1) == "Р" and get_solubility(substance2) == "Р":
-                        salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
-                        base = Base(substance2.cation, substance2.cation_charge)
-                        if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
-                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
-                except QueryNotFoundError:
-                    pass
-            elif substance2 == "":
-                try:
-                    if get_solubility(substance1) == "Р":
-                        raise InvalidReactionError("Основание должно быть нерастворимо")
-                except QueryNotFoundError:
-                    pass
-        elif substance1.__class__ == Salt:
-            if substance2.__class__ == Acid:
-                acid = Acid(substance1.anion)
-                salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
-                if str(acid) not in ("H2CO3", "H2SO3"):
-                    try:
-                        if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
-                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
-                    except QueryNotFoundError:
-                        pass
-            elif substance2.__class__ == Base:
-                try:
-                    if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
-                        salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
-                        base = Base(substance1.cation, substance1.cation_charge)
-                        if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
-                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
-                except QueryNotFoundError:
-                    pass
-            elif substance2.__class__ == Salt:
-                try:
-                    if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
-                        result_salt1 = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
-                        result_salt2 = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
-                        if get_solubility(result_salt1) == "Р" and get_solubility(result_salt2) == "Р":
-                            raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
-                except QueryNotFoundError:
-                    pass
-            elif substance2.__class__ == str:
-                if compare_reactivity(substance2, substance1.cation) <= 0:
-                    raise InvalidReactionError("Металл недостаточно активен, чтобы вытеснить металл из соли")
-    try:
         coeffs = calculate_coefficients(in1, in2, out1, out2)
     except CoefficientCalculationError:
         return "Не получилось расставить коэффициенты"
@@ -255,6 +189,75 @@ def fill_coefficients(in1, in2, out1, out2):
         return f"Коэффициенты в реакции расставлены:\n" \
                f"{part1} -> {part2}\n" + \
                (f"Ионное уравнение: {ionic}" if ionic else "Ионное уравнение не составляется")
+
+
+def check_reaction_validity(r1, r2):
+    """Выбрасывает исключение, если реакция не идет."""
+    try:
+        substance1 = get_substance(r1)
+        substance2 = get_substance(r2)
+    except IndexError:
+        return
+    if substance1.__class__ == Acid:
+        if substance2.__class__ == str:
+            if compare_reactivity(substance2, substance1.cation) <= 0:
+                raise InvalidReactionError("Металл не может вытеснить водород из кислоты")
+        elif substance2.__class__ == Salt:
+            acid = Acid(substance2.anion)
+            salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
+            if str(acid) not in ("H2CO3", "H2SO3"):
+                try:
+                    if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+                except QueryNotFoundError:
+                    pass
+    elif substance1.__class__ == Base:
+        if substance2.__class__ == Salt:
+            try:
+                if get_solubility(substance1) == "Р" and get_solubility(substance2) == "Р":
+                    salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
+                    base = Base(substance2.cation, substance2.cation_charge)
+                    if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+            except QueryNotFoundError:
+                pass
+        elif substance2 == "":
+            try:
+                if get_solubility(substance1) == "Р":
+                    raise InvalidReactionError("Основание должно быть нерастворимо")
+            except QueryNotFoundError:
+                pass
+    elif substance1.__class__ == Salt:
+        if substance2.__class__ == Acid:
+            acid = Acid(substance1.anion)
+            salt = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
+            if str(acid) not in ("H2CO3", "H2SO3"):
+                try:
+                    if get_solubility(salt) == "Р" and get_solubility(acid) == "Р":
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+                except QueryNotFoundError:
+                    pass
+        elif substance2.__class__ == Base:
+            try:
+                if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
+                    salt = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
+                    base = Base(substance1.cation, substance1.cation_charge)
+                    if get_solubility(salt) == "Р" and get_solubility(base) == "Р":
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+            except QueryNotFoundError:
+                pass
+        elif substance2.__class__ == Salt:
+            try:
+                if get_solubility(substance2) == "Р" and get_solubility(substance1) == "Р":
+                    result_salt1 = Salt(substance2.cation, substance2.cation_charge, substance1.anion)
+                    result_salt2 = Salt(substance1.cation, substance1.cation_charge, substance2.anion)
+                    if get_solubility(result_salt1) == "Р" and get_solubility(result_salt2) == "Р":
+                        raise InvalidReactionError("Один из продуктов реакции должен быть нерастворим")
+            except QueryNotFoundError:
+                pass
+        elif substance2.__class__ == str:
+            if compare_reactivity(substance2, substance1.cation) <= 0:
+                raise InvalidReactionError("Металл недостаточно активен, чтобы вытеснить металл из соли")
 
 
 def get_ionic_equation(reagents, coeffs):
@@ -287,6 +290,7 @@ def calculate_coefficients(reagent1, reagent2, reagent3, reagent4):
     atoms3 = Atoms(reagent3)
     atoms4 = Atoms(reagent4)
     coeff1 = coeff2 = coeff3 = coeff4 = 1
+    check_reaction_validity(reagent1, reagent2)
     if (atoms1 + atoms2).disparity(atoms3 + atoms4) == "too different":
         raise CoefficientCalculationError("Не получилось расставить коэффициенты")
     else:
@@ -379,7 +383,8 @@ def calculate_equation(reagent1, reagent2, reagent3, reagent4, known_reagent, ma
     r_mol = k_mol / kc * rc
     mol_mass, _ = r_atoms.calculate_molecular_mass()
     r_mass = r_mol * round(mol_mass)
-    msg += f"Масса {found_reagent}: {r_mol:.3f} * {round(mol_mass)} = {r_mass:.3f} г"
+    msg += f"Масса {found_reagent}: {r_mol:.3f} * {round(mol_mass)} = {r_mass:.3f} г\n"
+    msg += f"Объём {found_reagent}: {r_mol:.3f} * 22.4 л/моль = {r_mol * 22.4:.3f} л"
     return msg
 
 

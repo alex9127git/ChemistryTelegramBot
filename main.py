@@ -10,6 +10,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 STATE_INPUT = 1
+STATE_INPUT_EQUATION_KNOWN = 2
+STATE_INPUT_EQUATION_FOUND = 3
 
 
 async def start(update, context):
@@ -29,12 +31,12 @@ async def help_command(update, context):
 
 
 async def stop(update, context):
-    await update.message.reply_text("<Задача отменена>")
+    await update.message.reply_text("Задача отменена")
     return ConversationHandler.END
 
 
 async def gen_reaction(update, context):
-    await update.message.reply_text("Вводите исходные элементы реакции (через пробел)")
+    await update.message.reply_text("Вводите один или два исходных элемента реакции (через пробел)")
     context.user_data.clear()
     return STATE_INPUT
 
@@ -113,11 +115,62 @@ async def formula_handler(update, context):
     return ConversationHandler.END
 
 
+async def equation_calc(update, context):
+    await update.message.reply_text("Введите один или два исходных элемента реакции (через пробел)")
+    context.user_data.clear()
+    return STATE_INPUT
+
+
+async def equation_handler(update, context):
+    if context.user_data.get("reaction_inputs") is None:
+        reaction_inputs = update.message.text.split()
+        while len(reaction_inputs) < 2:
+            reaction_inputs.append('')
+        context.user_data["reaction_inputs"] = reaction_inputs
+        await update.message.reply_text("Введите продукты реакции (через пробел)")
+        return STATE_INPUT
+    elif context.user_data.get("reaction_outputs") is None:
+        reaction_outputs = update.message.text.split()
+        while len(reaction_outputs) < 2:
+            reaction_outputs.append('')
+        context.user_data["reaction_outputs"] = reaction_outputs
+        try:
+            _ = calculate_coefficients(
+                *context.user_data["reaction_inputs"], *context.user_data["reaction_outputs"])
+        except InvalidReactionError as e:
+            await update.message.reply_text(f"Ошибка: {e}")
+            return ConversationHandler.END
+        except CoefficientCalculationError:
+            await update.message.reply_text("Ошибка: не получилось расставить коэффициенты")
+            return ConversationHandler.END
+        await update.message.reply_text("Введите вещество, масса которого известна, и его массу (через пробел)")
+        return STATE_INPUT_EQUATION_KNOWN
+    elif context.user_data.get("known_substance") is None:
+        substance, mass_str = update.message.text.split()
+        try:
+            mass = float(mass_str.replace(",", "."))
+        except ValueError:
+            await update.message.reply_text("Ошибка: масса не является числом")
+            return ConversationHandler.END
+        context.user_data["known_substance"] = substance
+        context.user_data["known_mass"] = mass
+        await update.message.reply_text("Введите вещество, массу которого нужно найти")
+        return STATE_INPUT_EQUATION_FOUND
+    else:
+        substance = update.message.text
+        data = context.user_data
+        await update.message.reply_text(
+            calculate_equation(*data["reaction_inputs"], *data["reaction_outputs"], data["known_substance"],
+                               data["known_mass"], substance)
+        )
+        return ConversationHandler.END
+
+
 async def done(update, context):
     try:
         ta = fill_coefficients(*context.user_data["reaction_inputs"], *context.user_data["reaction_outputs"])
         await update.message.reply_text(ta)
-    except InvalidReactionError:
+    except InvalidReactionError as e:
         await update.message.reply_text(f"Ошибка: {e}")
 
 
@@ -143,6 +196,15 @@ def main():
         },
         fallbacks=[CommandHandler('stop', stop)]
     )
+    equation_calc_dialog = ConversationHandler(
+        entry_points=[CommandHandler('equation_calc', equation_calc)],
+        states={
+            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]*( [A-Za-z0-9\(\)]*|)$"), equation_handler)],
+            STATE_INPUT_EQUATION_KNOWN: [MessageHandler(filters.Regex(r"^[A-Za-z]* [0-9\.\,]*$"), equation_handler)],
+            STATE_INPUT_EQUATION_FOUND: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]*$"), equation_handler)]
+        },
+        fallbacks=[CommandHandler('stop', stop)]
+    )
     application = Application.builder().token('6118669795:AAFpiYLMNG1pRoLTpZbx0OjegOv7gYzLbsY').build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
@@ -150,6 +212,7 @@ def main():
     application.add_handler(generate_reaction_dialog)
     application.add_handler(getw_element_dialog)
     application.add_handler(calculate_formula_dialog)
+    application.add_handler(equation_calc_dialog)
     application.run_polling()
 
 
