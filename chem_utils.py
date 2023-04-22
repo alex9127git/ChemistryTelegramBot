@@ -9,33 +9,6 @@ history_path = "query_history.txt"
 bg_path = os.path.join(BASE_DIR, "bg.png")
 
 
-def initialize():
-    """Инициализация окна программы."""
-    con = sqlite3.connect(db_path)
-    cur = con.cursor()
-    elements = cur.execute(
-        """select symbol, name, element_types.type, mass from elements 
-        left join element_types on element_types.id = elements.type"""
-    ).fetchall()
-    solubility_data = cur.execute(
-        """select anions.formula, anions.charge, "H+1", "Li+1", "K+1", "Na+1", "NH4+1", "Ba+2", 
-        "Ca+2", "Mg+2", "Sr+2", "Al+3", "Cr+3", "Fe+2", "Fe+3", "Ni+2", "Co+2", "Mn+2", "Zn+2", 
-        "Ag+1", "Hg+2", "Pb+2", "Sn+2", "Cu+2" 
-        from solubility left join anions on solubility.anion_id = anions.id"""
-    ).fetchall()
-    solubility = []
-    cations = ("H+1", "Li+1", "K+1", "Na+1", "NH4+1", "Ba+2", "Ca+2", "Mg+2", "Sr+2", "Al+3",
-               "Cr+3", "Fe+2", "Fe+3", "Ni+2", "Co+2", "Mn+2", "Zn+2", "Ag+1", "Hg+2", "Pb+2",
-               "Sn+2", "Cu+2")
-    for anion in solubility_data:
-        solubility.append(
-            (anion[0], anion[1], {cations[x]: anion[2 + x] for x in range(len(anion[2:]))})
-        )
-    print(elements)
-    print(solubility)
-    return elements, solubility
-
-
 def fill_reaction(reagent1, reagent2):
     """Функция, которая возвращает продукты реакции, получающиеся из исходных веществ, или ошибку, если не получилось
     расшифровать формулу вещества, подобрать продукты реакции, или если реакция не проходит."""
