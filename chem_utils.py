@@ -293,23 +293,22 @@ def calculate_coefficients(reagent1, reagent2, reagent3, reagent4):
     check_reaction_validity(reagent1, reagent2)
     if (atoms1 + atoms2).disparity(atoms3 + atoms4) == "too different":
         raise CoefficientCalculationError("Не получилось расставить коэффициенты")
-    else:
-        while atoms1 * coeff1 + atoms2 * coeff2 != atoms3 * coeff3 + atoms4 * coeff4:
-            element = (atoms1 * coeff1 + atoms2 * coeff2).disparity(
-                atoms3 * coeff3 + atoms4 * coeff4)
-            count1 = (atoms1 * coeff1 + atoms2 * coeff2).atoms[element]
-            count2 = (atoms3 * coeff3 + atoms4 * coeff4).atoms[element]
-            lcc = lcm(count1, count2)
-            c1 = lcc // count1
-            c2 = lcc // count2
-            if element in atoms1:
-                coeff1 *= c1
-            if element in atoms2:
-                coeff2 *= c1
-            if element in atoms3:
-                coeff3 *= c2
-            if element in atoms4:
-                coeff4 *= c2
+    while atoms1 * coeff1 + atoms2 * coeff2 != atoms3 * coeff3 + atoms4 * coeff4:
+        element = (atoms1 * coeff1 + atoms2 * coeff2).disparity(
+            atoms3 * coeff3 + atoms4 * coeff4)
+        count1 = (atoms1 * coeff1 + atoms2 * coeff2).atoms[element]
+        count2 = (atoms3 * coeff3 + atoms4 * coeff4).atoms[element]
+        lcc = lcm(count1, count2)
+        c1 = lcc // count1
+        c2 = lcc // count2
+        if element in atoms1:
+            coeff1 *= c1
+        if element in atoms2:
+            coeff2 *= c1
+        if element in atoms3:
+            coeff3 *= c2
+        if element in atoms4:
+            coeff4 *= c2
     return [coeff1, coeff2, coeff3, coeff4]
 
 

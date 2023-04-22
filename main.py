@@ -146,12 +146,15 @@ async def equation_handler(update, context):
         await update.message.reply_text("Введите вещество, масса которого известна, и его массу (через пробел)")
         return STATE_INPUT_EQUATION_KNOWN
     elif context.user_data.get("known_substance") is None:
-        substance, mass_str = update.message.text.split()
-        try:
+        data = update.message.text.split()
+        if len(data) == 2:
+            substance, mass_str = data
             mass = float(mass_str.replace(",", "."))
-        except ValueError:
-            await update.message.reply_text("Ошибка: масса не является числом")
-            return ConversationHandler.END
+        else:
+            substance, mass_str, percentage = data
+            mass = float(mass_str.replace(",", "."))
+            percents = float(percentage[:-1].replace(",", "."))
+            mass *= percents / 100
         context.user_data["known_substance"] = substance
         context.user_data["known_mass"] = mass
         await update.message.reply_text("Введите вещество, массу которого нужно найти")
@@ -178,30 +181,31 @@ def main():
     generate_reaction_dialog = ConversationHandler(
         entry_points=[CommandHandler('gen_reaction', gen_reaction)],
         states={
-            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]*( [A-Za-z0-9\(\)]*|)$"), gen_handler)]
+            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*( [A-Za-z0-9()]*|)$"), gen_handler)]
         },
         fallbacks=[CommandHandler('stop', stop)]
     )
     getw_element_dialog = ConversationHandler(
         entry_points=[CommandHandler('getw_element', getw_element)],
         states={
-            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]* [A-Za-z]*$"), mass_handler)]
+            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]* [A-Za-z]*$"), mass_handler)]
         },
         fallbacks=[CommandHandler('stop', stop)]
     )
     calculate_formula_dialog = ConversationHandler(
         entry_points=[CommandHandler('formula', formula)],
         states={
-            STATE_INPUT: [MessageHandler(filters.Regex(r"^([A-Za-z]* [0-9\.\,]*\b)+$"), formula_handler)]
+            STATE_INPUT: [MessageHandler(filters.Regex(r"^([A-Za-z]* [0-9.,]*\b)+$"), formula_handler)]
         },
         fallbacks=[CommandHandler('stop', stop)]
     )
     equation_calc_dialog = ConversationHandler(
         entry_points=[CommandHandler('equation_calc', equation_calc)],
         states={
-            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]*( [A-Za-z0-9\(\)]*|)$"), equation_handler)],
-            STATE_INPUT_EQUATION_KNOWN: [MessageHandler(filters.Regex(r"^[A-Za-z]* [0-9\.\,]*$"), equation_handler)],
-            STATE_INPUT_EQUATION_FOUND: [MessageHandler(filters.Regex(r"^[A-Za-z0-9\(\)]*$"), equation_handler)]
+            STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*( [A-Za-z0-9()]*|)$"), equation_handler)],
+            STATE_INPUT_EQUATION_KNOWN:
+                [MessageHandler(filters.Regex(r"^[A-Za-z]* [0-9.,]* ([0-9.,]*%|)$"), equation_handler)],
+            STATE_INPUT_EQUATION_FOUND: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*$"), equation_handler)]
         },
         fallbacks=[CommandHandler('stop', stop)]
     )

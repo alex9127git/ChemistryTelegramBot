@@ -103,7 +103,7 @@ class Atoms:
         """Проверяет есть ли атом в списке."""
         return item in self.atoms.keys()
 
-    def disparity(self, other):
+    def disparity(self, other, max_mode=False):
         """Возвращает атом, который находится в двух списках в разном количестве. Если списки равны,
         возвращает пустую строку. Если какой-то атом есть только в одном списке, возвращает строку
         "too different". Если атомов с разными количествами несколько, возвращает тот, для которого
@@ -119,7 +119,7 @@ class Atoms:
                 for element in self.atoms.keys():
                     if self.atoms[element] != other.atoms[element]:
                         m = lcm(self.atoms[element], other.atoms[element])
-                        if lcc == 0 or m < lcc:
+                        if (max_mode and m > lcc) or (not max_mode and (lcc == 0 or m < lcc)):
                             result = element
                             lcc = m
                 return result
@@ -140,6 +140,10 @@ def lcm(*integers):
     for i in integers:
         result *= i
     return result // gcd(*integers)
+
+
+def atom_sum(atoms_list):
+    return atom_sum(atoms_list[:-1]) + atoms_list[-1] if len(atoms_list) > 1 else atoms_list[0]
 
 
 if __name__ == "__main__":
