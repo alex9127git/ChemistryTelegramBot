@@ -220,7 +220,7 @@ def main():
         states={
             STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*( [A-Za-z0-9()]*|)$"), equation_handler)],
             STATE_INPUT_EQUATION_KNOWN:
-                [MessageHandler(filters.Regex(r"^[A-Za-z]* [0-9.,]*( [0-9.,]*%|)$"), equation_handler)],
+                [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]* [0-9.,]*( [0-9.,]*%|)$"), equation_handler)],
             STATE_INPUT_EQUATION_FOUND: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*$"), equation_handler)]
         },
         fallbacks=[CommandHandler('stop', stop)]
