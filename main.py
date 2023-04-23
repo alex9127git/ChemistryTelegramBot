@@ -2,6 +2,7 @@ import logging
 from telegram.ext import Application, MessageHandler, filters
 from telegram.ext import CommandHandler
 from telegram.ext import ConversationHandler
+from telegram import ReplyKeyboardMarkup
 from chem_utils import *
 
 logging.basicConfig(
@@ -14,35 +15,46 @@ STATE_INPUT_EQUATION_KNOWN = 2
 STATE_INPUT_EQUATION_FOUND = 3
 
 
+commands = [['/gen_reaction', '/getw_element', '/formula', '/equation_calc', '/help']]
+keyboard = ReplyKeyboardMarkup(commands, one_time_keyboard=True, resize_keyboard=True)
+stop_keyboard = ReplyKeyboardMarkup([['/stop']], one_time_keyboard=True, resize_keyboard=True)
+
+
 async def start(update, context):
     user = update.effective_user
     await update.message.reply_html(
         f"Привет {user.mention_html()}!"
-        f"Я помогаю с химией. Введите команду /help для получения информации о моих возможностях")
+        f"Я помогаю с химией. Введите команду /help для получения информации о моих возможностях",
+        reply_markup=keyboard
+    )
 
 
 async def help_command(update, context):
-    await update.message.reply_text("Список допустимых команд:")
-    await update.message.reply_text("Команда /get_reaction - получение рекции и расстановка коэффициентов")
     await update.message.reply_text(
-        "Команда /getw_element - рассчитывает массовую долю выбранного элемента в выбранном веществе")
-    await update.message.reply_text("Команда /formula - рассчитывает формулу веществ по массовым долям его элементов")
-    await update.message.reply_text('Команда /himia_top - выводит сообщение "Химия топ!"')
+        "Список допустимых команд:\n"
+        "Команда /gen_reaction - получение рекции и расстановка коэффициентов\n"
+        "Команда /getw_element - рассчитывает массовую долю выбранного элемента в выбранном веществе\n"
+        "Команда /formula - рассчитывает формулу веществ по массовым долям его элементов\n"
+        "Команда /equation_calc - проводит расчет по уравнениям химических реакций\n"
+        "Для каждой команды есть соответствующие кнопки\n"
+        'Команда /himia_top - выводит сообщение "Химия топ!"', reply_markup=keyboard
+    )
 
 
 async def stop(update, context):
-    await update.message.reply_text("Задача отменена")
+    await update.message.reply_text("Задача отменена", reply_markup=keyboard)
     return ConversationHandler.END
 
 
 async def gen_reaction(update, context):
-    await update.message.reply_text("Вводите один или два исходных элемента реакции (через пробел)")
+    await update.message.reply_text("Вводите один или два исходных элемента реакции (через пробел)",
+                                    reply_markup=stop_keyboard)
     context.user_data.clear()
     return STATE_INPUT
 
 
 async def mes(update, context):
-    await update.message.reply_text("Химия топ!")
+    await update.message.reply_text("Химия топ!", reply_markup=keyboard)
 
 
 async def gen_handler(update, context):
@@ -60,7 +72,7 @@ async def gen_handler(update, context):
             await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
             return STATE_INPUT
         except InvalidReactionError as e:
-            await update.message.reply_text(f"Ошибка: {e}")
+            await update.message.reply_text(f"Ошибка: {e}", reply_markup=keyboard)
             return ConversationHandler.END
         else:
             context.user_data["reaction_outputs"] = reaction_outputs
@@ -79,13 +91,13 @@ async def gen_handler(update, context):
 
 async def mass_handler(update, context):
     reaction_inputs = update.message.text.split()
-    await update.message.reply_text(calculate_mass(reaction_inputs[0], reaction_inputs[1]))
+    await update.message.reply_text(calculate_mass(reaction_inputs[0], reaction_inputs[1]), reply_markup=keyboard)
     return ConversationHandler.END
 
 
 async def getw_element(update, context):
     await update.message.reply_text("Введите вещество и элемент, массовую долю которого нужно найти\n" +
-                                    "(через пробел на одной строке)")
+                                    "(через пробел на одной строке)", reply_markup=stop_keyboard)
     context.user_data.clear()
     return STATE_INPUT
 
@@ -94,7 +106,7 @@ async def formula(update, context):
     await update.message.reply_text("Введите элементы и их массовые доли в процентах.\n" +
                                     "Ваше сообщение должно выглядеть следующим образом:\n" +
                                     "<элемент 1> <массовая доля 1> <элемент 2> <массовая доля 2> ...\n" +
-                                    "Проценты в сумме должны давать 100")
+                                    "Проценты в сумме должны давать 100", reply_markup=stop_keyboard)
     context.user_data.clear()
     return STATE_INPUT
 
@@ -102,21 +114,22 @@ async def formula(update, context):
 async def formula_handler(update, context):
     inputs = update.message.text.split()
     if len(inputs) % 2:
-        await update.message.reply_text("Ошибка: нечетное количество аргументов")
+        await update.message.reply_text("Ошибка: нечетное количество аргументов", reply_markup=keyboard)
         return ConversationHandler.END
     try:
         substances = inputs[::2]
         percentages = list(map(lambda x: float(x.replace(",", ".")), inputs[1::2]))
     except ValueError:
-        await update.message.reply_text("Ошибка: неправильно указаны процентные соотношения")
+        await update.message.reply_text("Ошибка: неправильно указаны процентные соотношения", reply_markup=keyboard)
         return ConversationHandler.END
     args = {substances[i]: percentages[i] for i in range(len(inputs) // 2)}
-    await update.message.reply_text(calculate_formula(args))
+    await update.message.reply_text(calculate_formula(args), reply_markup=keyboard)
     return ConversationHandler.END
 
 
 async def equation_calc(update, context):
-    await update.message.reply_text("Введите один или два исходных элемента реакции (через пробел)")
+    await update.message.reply_text("Введите один или два исходных элемента реакции (через пробел)",
+                                    reply_markup=stop_keyboard)
     context.user_data.clear()
     return STATE_INPUT
 
@@ -138,10 +151,10 @@ async def equation_handler(update, context):
             _ = calculate_coefficients(
                 *context.user_data["reaction_inputs"], *context.user_data["reaction_outputs"])
         except InvalidReactionError as e:
-            await update.message.reply_text(f"Ошибка: {e}")
+            await update.message.reply_text(f"Ошибка: {e}", reply_markup=keyboard)
             return ConversationHandler.END
         except CoefficientCalculationError:
-            await update.message.reply_text("Ошибка: не получилось расставить коэффициенты")
+            await update.message.reply_text("Ошибка: не получилось расставить коэффициенты", reply_markup=keyboard)
             return ConversationHandler.END
         await update.message.reply_text("Введите вещество, масса которого известна, и его массу (через пробел)")
         return STATE_INPUT_EQUATION_KNOWN
@@ -164,7 +177,8 @@ async def equation_handler(update, context):
         data = context.user_data
         await update.message.reply_text(
             calculate_equation(*data["reaction_inputs"], *data["reaction_outputs"], data["known_substance"],
-                               data["known_mass"], substance)
+                               data["known_mass"], substance),
+            reply_markup=keyboard
         )
         return ConversationHandler.END
 
@@ -172,9 +186,9 @@ async def equation_handler(update, context):
 async def done(update, context):
     try:
         ta = fill_coefficients(*context.user_data["reaction_inputs"], *context.user_data["reaction_outputs"])
-        await update.message.reply_text(ta)
+        await update.message.reply_text(ta, reply_markup=keyboard)
     except InvalidReactionError as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"Ошибка: {e}", reply_markup=keyboard)
 
 
 def main():
@@ -204,7 +218,7 @@ def main():
         states={
             STATE_INPUT: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*( [A-Za-z0-9()]*|)$"), equation_handler)],
             STATE_INPUT_EQUATION_KNOWN:
-                [MessageHandler(filters.Regex(r"^[A-Za-z]* [0-9.,]* ([0-9.,]*%|)$"), equation_handler)],
+                [MessageHandler(filters.Regex(r"^[A-Za-z]* [0-9.,]*( [0-9.,]*%|)$"), equation_handler)],
             STATE_INPUT_EQUATION_FOUND: [MessageHandler(filters.Regex(r"^[A-Za-z0-9()]*$"), equation_handler)]
         },
         fallbacks=[CommandHandler('stop', stop)]
