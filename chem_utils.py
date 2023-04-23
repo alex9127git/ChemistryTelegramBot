@@ -158,6 +158,8 @@ def fill_reaction(reagent1, reagent2):
                 return str(salt), str(substance1.cation)
             else:
                 raise InvalidReactionError("Металл недостаточно активен, чтобы вытеснить металл из соли")
+    else:
+        raise AutoCompletionError("Не получилось автозаполнить реакцию")
 
 
 def fill_coefficients(in1, in2, out1, out2):
