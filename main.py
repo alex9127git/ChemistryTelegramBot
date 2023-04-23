@@ -65,6 +65,8 @@ async def gen_handler(update, context):
         context.user_data["reaction_inputs"] = reaction_inputs
         try:
             reaction_outputs = fill_reaction(*reaction_inputs)
+            if reaction_outputs is None:
+                raise AutoCompletionError()
         except SubstanceDecodeError:
             await update.message.reply_text("Не определены продукты реакции, введите их самостоятельно!")
             return STATE_INPUT
